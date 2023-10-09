@@ -1,0 +1,25 @@
+```{r,warning=FALSE,message=FALSE}
+library(maftools)
+# view available TCGA cohorts, check that LGG is there
+tcgaAvailable()
+lgg<-tcgaLoad(study = "LGG")
+
+# view a summary of this file
+lgg
+```
+1. An oncoplot of the top five mutated genes
+```{r}
+oncoplot(lgg, top=5)
+
+```
+
+2. A boxplot of the transistion-to-transversion ratio
+```{r}
+titv_rat <- titv(lgg,plot=FALSE)
+plotTiTv(res=titv_rat,plotType = 'box')
+```
+
+3. A plot comparing the mutation load in this LGG cohort to other TCGA cohorts. Use log scale.
+```{r}
+tcgaCompare(lgg)
+```
