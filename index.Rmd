@@ -1,0 +1,175 @@
+---
+title: "Untitled"
+author: "Riya"
+date: "`r Sys.Date()`"
+output:
+  html_document: 
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    theme: united
+    highlight: tango
+    fig_width: 8
+---
+
+```{r,message=FALSE,warning=FALSE}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(kableExtra)
+```
+
+# Data 
+
+```{r,warning=FALSE}
+data <- read.csv("/home/riya/BRN/gapminder_clean.csv") %>%
+  as.tibble()
+head(data)
+```
+
+***
+
+# Filtering the data to include only rows where Year is 1962
+
+```{r}
+# filtering the data to include rows where Year is equal to 1962
+filtered_data1 <- data %>%
+  filter(Year == 1962)
+```
+
+## Scatterplot
+
+```{r,warning=FALSE,fig.align = "center"}
+filtered_data1 %>%
+  ggplot(aes(x = CO2.emissions..metric.tons.per.capita., y = gdpPercap)) +
+  geom_point() #+
+# ggsave("scatterPlot.png",path="/home/riya/BRN/Plots")
+```
+
+## Correlation
+
+```{r}
+cor_res <- cor.test(filtered_data1$CO2.emissions..metric.tons.per.capita., filtered_data1$gdpPercap)
+cor_res
+cor_res$p.value
+```
+
+The correlation coefficient of approximately 0.9261 suggests a very strong <b>positive</b> linear relationship between "CO2 emissions (metric tons per capita)" and "GDP per capita". The confidence interval between 0.8934697 and 0.9489792 further supports this correlation.
+
+***
+
+# Year with strongest correlation between 'CO2 emissions (metric tons per capita)'and gdpPercap
+
+```{r}
+data %>%
+  filter(complete.cases(CO2.emissions..metric.tons.per.capita., gdpPercap)) %>%
+  group_by(Year) %>%
+  summarise(cor = cor(CO2.emissions..metric.tons.per.capita., gdpPercap)) %>%
+  slice(which.max(cor))%>%
+  kbl()%>%
+  kable_material()
+```
+
+Max correlation between Co2 emissions and gdpPercapita was observed in 1967. Hence, subsetting the data to only include rows corresponding to year 1967.
+
+```{r}
+filtered_data2 <- data %>%
+  filter(Year == 1967)
+
+kbl(head(filtered_data2, 5)) %>%
+  kable_material(c("striped", "hover"))%>%
+  scroll_box(width="830px")
+```
+
+## Scatter plot comparing 'CO2 emissions (metric tons per capita)'and gdpPercap
+
+```{r,warning=FALSE,message=FALSE, fig.align = "center"}
+library(plotly)
+p <- filtered_data2 %>%
+  ggplot(aes(x = CO2.emissions..metric.tons.per.capita., y = gdpPercap, color = continent)) +
+  geom_point(aes(pop))
+
+ggplotly(p)
+# ggsave("emVsgdp_scatterplot.png",plot=p,path ="/home/riya/BRN/Plots" )
+```
+
+*** 
+
+# Statistical tests to determine relationship between continent and 'Energy use (kg of oil equivalent per capita)'
+
+```{r,warning=FALSE,fig.align = "center"}
+# plotting a boxplot to visualise the relationship between these variables
+data %>%
+  ggplot(aes(x = continent, y = Energy.use..kg.of.oil.equivalent.per.capita.)) +
+  geom_boxplot()
+
+# ggsave("boxplot.png",path="/home/riya/BRN/Plots")
+```
+
+Here, from above plot there seems to some differences in the energy across different continents, particularly - Asia, Europe and Oceania(highest median observed for Oceania). We will test significance of these differences statistically using ANOVA test.
+
+```{r}
+aov_model <- aov(data$Energy.use..kg.of.oil.equivalent.per.capita. ~ data$continent)
+summary(aov_model)
+```
+
+Here, the observed p-value is very small(\<2e-16) and provides a strong evidence to reject null hypothesis. This indicates statistically significant differences in the energy use across the continents.
+
+***
+
+# Is there a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990?
+
+```{r,warning=FALSE,fig.align = "center"}
+# density plot to visualise the differences in imports of goods and services in two continents
+data %>%
+  filter(Year > 1990 & continent %in% c("Europe", "Asia")) %>%
+  ggplot(aes(x = Imports.of.goods.and.services....of.GDP., fill = continent)) +
+  geom_density(alpha = 0.3) +
+  labs(title = "Imports of goods and services between Europe and Asia")
+```
+
+```{r}
+# stats
+my_Data <- data %>%
+  filter(Year > 1990) %>%
+  select(continent, Imports.of.goods.and.services....of.GDP.) %>%
+  filter(continent %in% c("Europe", "Asia"))
+t.test(Imports.of.goods.and.services....of.GDP. ~ continent, my_Data)
+```
+
+Based on the results, the p-value of 0.1776 is greater than the typical significance level of 0.05. This means we cannot reject the null hypothesis indicating there is no significant difference in import of goods and services between Asia and Europe.
+
+***
+
+# What is the country (or countries) that has the highest 'Population density (people per sq. km of land area)' across all years? 
+
+```{r}
+data %>%
+  group_by(Country.Name) %>%
+  summarise(mean = mean(Population.density..people.per.sq..km.of.land.area.)) %>%
+  slice(which.max(mean)) %>%
+  kbl() %>%
+  kable_material("striped")
+```
+
+
+<b>China</b> has the highest 'Population density (people per sq. km of land area)' across all years.  
+
+***
+
+# What country (or countries) has shown the greatest increase in 'Life expectancy at birth, total (years)' between 1962 and 2007?
+
+```{r}
+glexpData <- data %>%
+  filter(Year %in% c(1962, 2007)) %>%
+  select(Year, Country.Name, Life.expectancy.at.birth..total..years.) %>%
+  group_by(Country.Name) %>%
+  pivot_wider(names_from = Year, values_from = Life.expectancy.at.birth..total..years.) %>%
+  mutate(diff_LE = `2007` - `1962`) %>%
+  arrange(desc(diff_LE))
+
+kbl(head(glexpData, 5)) %>%
+  kable_material(c("striped", "hover"))
+```
+
+<b>Maldives</b> saw greatest increase in Life expectancy at birth between year 1962 and 2007.
